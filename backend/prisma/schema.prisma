@@ -1,0 +1,284 @@
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+
+enum UserRole {
+  CLIENT
+  MUSICIAN
+  ADMIN
+}
+
+enum BookingStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  COMPLETED
+  CANCELLED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+  TRIAL
+}
+
+enum InstrumentCategory {
+  STRINGS
+  WOODWIND
+  BRASS
+  PERCUSSION
+  KEYBOARD
+  VOCAL
+  ELECTRONIC
+  OTHER
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  phone         String?   @unique
+  password      String
+  firstName     String
+  lastName      String
+  role          UserRole  @default(CLIENT)
+  isVerified    Boolean   @default(false)
+  isActive      Boolean   @default(true)
+  profileImage  String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  musicianProfile MusicianProfile?
+  clientBookings  Booking[]        @relation("ClientBookings")
+  musicianBookings Booking[]       @relation("MusicianBookings")
+  reviews         Review[]
+  payments        Payment[]
+  notifications   Notification[]
+
+  @@index([email])
+  @@index([phone])
+  @@map("users")
+}
+
+model MusicianProfile {
+  id                String              @id @default(cuid())
+  userId            String              @unique
+  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  bio               String?
+  yearsOfExperience Int                 @default(0)
+  hourlyRate        Float?
+  
+  // Location (using PostGIS in production)
+  city              String
+  state             String
+  country           String              @default("Nigeria")
+  latitude          Float?
+  longitude         Float?
+  
+  // Specialties
+  instruments       Instrument[]
+  genres            Genre[]
+  
+  // Portfolio
+  portfolioVideos   PortfolioItem[]
+  
+  // Subscription
+  subscription      Subscription?
+  isAvailable       Boolean             @default(true)
+  
+  // Stats
+  totalGigs         Int                 @default(0)
+  averageRating     Float               @default(0)
+  
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@index([city, state])
+  @@index([latitude, longitude])
+  @@map("musician_profiles")
+}
+
+model Instrument {
+  id          String              @id @default(cuid())
+  name        String              @unique
+  category    InstrumentCategory
+  description String?
+  
+  musicians   MusicianProfile[]
+  bookings    Booking[]
+  
+  createdAt   DateTime            @default(now())
+
+  @@map("instruments")
+}
+
+model Genre {
+  id          String              @id @default(cuid())
+  name        String              @unique
+  description String?
+  
+  musicians   MusicianProfile[]
+  
+  createdAt   DateTime            @default(now())
+
+  @@map("genres")
+}
+
+model PortfolioItem {
+  id                String           @id @default(cuid())
+  musicianProfileId String
+  musicianProfile   MusicianProfile  @relation(fields: [musicianProfileId], references: [id], onDelete: Cascade)
+  
+  title             String
+  description       String?
+  fileUrl           String
+  fileType          String           // video, audio, image
+  thumbnailUrl      String?
+  duration          Int?             // in seconds
+  
+  createdAt         DateTime         @default(now())
+
+  @@index([musicianProfileId])
+  @@map("portfolio_items")
+}
+
+model Subscription {
+  id                String              @id @default(cuid())
+  musicianProfileId String              @unique
+  musicianProfile   MusicianProfile     @relation(fields: [musicianProfileId], references: [id], onDelete: Cascade)
+  
+  status            SubscriptionStatus  @default(TRIAL)
+  startDate         DateTime
+  endDate           DateTime
+  autoRenew         Boolean             @default(true)
+  
+  paymentId         String?
+  
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@index([status, endDate])
+  @@map("subscriptions")
+}
+
+model Booking {
+  id          String         @id @default(cuid())
+  
+  clientId    String
+  client      User           @relation("ClientBookings", fields: [clientId], references: [id])
+  
+  musicianId  String
+  musician    User           @relation("MusicianBookings", fields: [musicianId], references: [id])
+  
+  // Event Details
+  eventName   String
+  eventDate   DateTime
+  eventTime   String
+  duration    Int            // in hours
+  
+  // Location
+  venue       String
+  address     String
+  city        String
+  state       String
+  latitude    Float?
+  longitude   Float?
+  
+  // Requirements
+  instruments Instrument[]
+  description String?
+  
+  // Pricing
+  offeredRate Float
+  agreedRate  Float?
+  
+  // Status
+  status      BookingStatus  @default(PENDING)
+  
+  // Relations
+  payment     Payment?
+  review      Review?
+  
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([clientId])
+  @@index([musicianId])
+  @@index([eventDate])
+  @@index([status])
+  @@map("bookings")
+}
+
+model Payment {
+  id              String    @id @default(cuid())
+  
+  userId          String
+  user            User      @relation(fields: [userId], references: [id])
+  
+  bookingId       String?   @unique
+  booking         Booking?  @relation(fields: [bookingId], references: [id])
+  
+  amount          Float
+  currency        String    @default("NGN")
+  
+  // Payment Gateway
+  paymentMethod   String    // paystack, stripe, etc
+  transactionRef  String    @unique
+  paymentStatus   String    // pending, successful, failed
+  
+  metadata        Json?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([transactionRef])
+  @@map("payments")
+}
+
+model Review {
+  id          String    @id @default(cuid())
+  
+  bookingId   String    @unique
+  booking     Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  
+  reviewerId  String
+  reviewer    User      @relation(fields: [reviewerId], references: [id])
+  
+  rating      Int       // 1-5
+  comment     String?
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([reviewerId])
+  @@map("reviews")
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  title     String
+  message   String
+  type      String    // booking_request, booking_accepted, payment_received, etc
+  isRead    Boolean   @default(false)
+  
+  metadata  Json?
+  
+  createdAt DateTime  @default(now())
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
