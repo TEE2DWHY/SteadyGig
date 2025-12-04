@@ -1,7 +1,6 @@
 import { Request, Response } from "express";
 import bcrypt from "bcrypt";
 import asyncWrapper from "../utils/asyncWrapper";
-import { validationResult } from "express-validator";
 import {
     sendErrorResponse,
     sendSuccessResponse,
@@ -16,16 +15,9 @@ import {
 import redisClient from "../config/redis";
 import jwt from "jsonwebtoken";
 import { AuthRequest } from "../middlewares/auth";
+import { EmailHandler } from "../utils/emailHandler";
 
 export const register = asyncWrapper(async (req: Request, res: Response) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return sendErrorResponse(
-            res,
-            StatusCodes.BAD_REQUEST,
-            "Validation error",
-        );
-    }
     const { email, password, firstName, lastName, phone, role } = req.body;
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
@@ -69,17 +61,8 @@ export const register = asyncWrapper(async (req: Request, res: Response) => {
 });
 
 export const login = asyncWrapper(async (req: Request, res: Response) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return sendErrorResponse(
-            res,
-            StatusCodes.BAD_REQUEST,
-            "Validation error",
-        );
-    }
     const { email, password } = req.body;
 
-    // Rate limiting: Check login attempts
     const attemptsKey = `login:attempts:${email}`;
     const attempts = await redisClient.get(attemptsKey);
 
@@ -140,6 +123,65 @@ export const login = asyncWrapper(async (req: Request, res: Response) => {
     });
 });
 
+export const forgotPassword = asyncWrapper(
+    async (req: Request, res: Response) => {
+        const { email } = req.body;
+        const user = await prisma.user.findUnique({ where: { email } });
+        if (!user) {
+            return sendErrorResponse(
+                res,
+                StatusCodes.BAD_REQUEST,
+                "Bad Request.",
+            );
+        }
+        const refreshToken = generateTokens({
+            userId: user.id,
+            email: user.email,
+            role: user.role,
+        }).refreshToken;
+        const emailInstance = new EmailHandler();
+        await emailInstance.sendPasswordResetEmail(email, refreshToken);
+        sendSuccessResponse(
+            res,
+            StatusCodes.OK,
+            "Password reset email sent successfully.",
+        );
+    },
+);
+
+export const resetPassword = asyncWrapper(
+    async (req: Request, res: Response) => {
+        const { token, newPassword } = req.body;
+
+        const decoded = verifyRefreshToken(token);
+
+        const user = await prisma.user.findUnique({
+            where: { id: decoded.userId },
+        });
+
+        if (!user) {
+            return sendErrorResponse(
+                res,
+                StatusCodes.BAD_REQUEST,
+                "Invalid or expired token.",
+            );
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+        await prisma.user.update({
+            where: { id: user.id },
+            data: { password: hashedPassword },
+        });
+
+        sendSuccessResponse(
+            res,
+            StatusCodes.OK,
+            "Password reset successfully.",
+        );
+    },
+);
+
 export const logout = asyncWrapper(async (req: AuthRequest, res: Response) => {
     const token = req.headers.authorization?.split(" ")[1];
 
@@ -161,17 +203,7 @@ export const logout = asyncWrapper(async (req: AuthRequest, res: Response) => {
 export const refreshToken = asyncWrapper(
     async (req: Request, res: Response) => {
         const { refreshToken } = req.body;
-
-        if (!refreshToken) {
-            return sendErrorResponse(
-                res,
-                StatusCodes.BAD_REQUEST,
-                "Refresh token is required",
-            );
-        }
-
         const decoded = verifyRefreshToken(refreshToken);
-
         const storedToken = await redisClient.get(`refresh:${decoded.userId}`);
 
         if (!storedToken || storedToken !== refreshToken) {
@@ -193,13 +225,11 @@ export const refreshToken = asyncWrapper(
                 "User not found",
             );
         }
-
         const newAccessToken = generateAccessToken({
             userId: user.id,
             email: user.email,
             role: user.role,
         });
-
         sendSuccessResponse(
             res,
             StatusCodes.OK,

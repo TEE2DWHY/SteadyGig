@@ -1,10 +1,6 @@
 import redis from "../config/redis";
 import logger from "./logger";
 
-/**
- * Cache utility functions for Redis operations
- */
-
 export class CacheService {
     static async get<T>(key: string): Promise<T | null> {
         try {
