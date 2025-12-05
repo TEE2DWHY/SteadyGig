@@ -52,6 +52,12 @@ export const register = asyncWrapper(async (req: Request, res: Response) => {
         role: user.role,
     });
 
+    const emailHandler = new EmailHandler();
+    await emailHandler.sendEmail({
+        to: email,
+        subject: "Welcome To Steady Gig",
+    });
+
     sendSuccessResponse(
         res,
         StatusCodes.CREATED,
