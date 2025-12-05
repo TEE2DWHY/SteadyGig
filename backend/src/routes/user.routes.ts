@@ -8,7 +8,9 @@ import {
     getCurrentUser,
     updateUser,
     deleteUser,
+    uploadProfileImage,
 } from "../controllers/user.controller";
+import { uploadProfileImage as uploadProfileImageMiddleware } from "../middlewares/upload";
 
 const router = Router();
 
@@ -23,12 +25,27 @@ router.get("/me/profile", getCurrentUser);
 router.put(
     "/me/profile",
     [
-        body("firstName").optional().notEmpty().withMessage("First name cannot be empty"),
-        body("lastName").optional().notEmpty().withMessage("Last name cannot be empty"),
-        body("phone").optional().notEmpty().withMessage("Phone cannot be empty"),
+        body("firstName")
+            .optional()
+            .notEmpty()
+            .withMessage("First name cannot be empty"),
+        body("lastName")
+            .optional()
+            .notEmpty()
+            .withMessage("Last name cannot be empty"),
+        body("phone")
+            .optional()
+            .notEmpty()
+            .withMessage("Phone cannot be empty"),
     ],
     validate,
     updateUser,
+);
+
+router.post(
+    "/me/profile/image",
+    uploadProfileImageMiddleware,
+    uploadProfileImage,
 );
 
 router.delete("/me/profile", deleteUser);

@@ -55,7 +55,6 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  // Relations
   musicianProfile MusicianProfile?
   clientBookings  Booking[]        @relation("ClientBookings")
   musicianBookings Booking[]       @relation("MusicianBookings")
@@ -77,25 +76,20 @@ model MusicianProfile {
   yearsOfExperience Int                 @default(0)
   hourlyRate        Float?
   
-  // Location (using PostGIS in production)
   city              String
   state             String
   country           String              @default("Nigeria")
   latitude          Float?
   longitude         Float?
   
-  // Specialties
   instruments       Instrument[]
   genres            Genre[]
   
-  // Portfolio
   portfolioVideos   PortfolioItem[]
   
-  // Subscription
   subscription      Subscription?
   isAvailable       Boolean             @default(true)
   
-  // Stats
   totalGigs         Int                 @default(0)
   averageRating     Float               @default(0)
   
@@ -141,9 +135,9 @@ model PortfolioItem {
   title             String
   description       String?
   fileUrl           String
-  fileType          String           // video, audio, image
+  fileType          String           
   thumbnailUrl      String?
-  duration          Int?             // in seconds
+  duration          Int?           
   
   createdAt         DateTime         @default(now())
 
@@ -179,13 +173,11 @@ model Booking {
   musicianId  String
   musician    User           @relation("MusicianBookings", fields: [musicianId], references: [id])
   
-  // Event Details
   eventName   String
   eventDate   DateTime
   eventTime   String
-  duration    Int            // in hours
+  duration    Int            
   
-  // Location
   venue       String
   address     String
   city        String
@@ -193,18 +185,14 @@ model Booking {
   latitude    Float?
   longitude   Float?
   
-  // Requirements
   instruments Instrument[]
   description String?
   
-  // Pricing
   offeredRate Float
   agreedRate  Float?
   
-  // Status
   status      BookingStatus  @default(PENDING)
   
-  // Relations
   payment     Payment?
   review      Review?
   
@@ -230,10 +218,9 @@ model Payment {
   amount          Float
   currency        String    @default("NGN")
   
-  // Payment Gateway
-  paymentMethod   String    // paystack, stripe, etc
+  paymentMethod   String    
   transactionRef  String    @unique
-  paymentStatus   String    // pending, successful, failed
+  paymentStatus   String   
   
   metadata        Json?
   
@@ -254,7 +241,7 @@ model Review {
   reviewerId  String
   reviewer    User      @relation(fields: [reviewerId], references: [id])
   
-  rating      Int       // 1-5
+  rating      Int      
   comment     String?
   
   createdAt   DateTime  @default(now())
@@ -272,7 +259,7 @@ model Notification {
   
   title     String
   message   String
-  type      String    // booking_request, booking_accepted, payment_received, etc
+  type      String    
   isRead    Boolean   @default(false)
   
   metadata  Json?
