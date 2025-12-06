@@ -53,10 +53,10 @@ export const register = asyncWrapper(async (req: Request, res: Response) => {
     });
 
     const emailHandler = new EmailHandler();
-    await emailHandler.sendEmail({
-        to: email,
-        subject: "Welcome To Steady Gig",
-    });
+    await emailHandler.sendWelcomeEmail(
+        email,
+        `${firstName} ${lastName}`.trim() || email,
+    );
 
     sendSuccessResponse(
         res,
@@ -116,6 +116,49 @@ export const login = asyncWrapper(async (req: Request, res: Response) => {
         7 * 24 * 60 * 60,
         tokens.refreshToken,
     );
+
+    const emailHandler = new EmailHandler();
+    await emailHandler.sendEmail({
+        to: user.email,
+        subject: "New Login to Your Account - SteadyGig",
+        html: `
+            <!DOCTYPE html>
+            <html>
+              <head>
+                <style>
+                  body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                  .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                  .header { background-color: #4CAF50; color: white; padding: 20px; text-align: center; }
+                  .content { padding: 20px; background-color: #f9f9f9; }
+                  .info-box { background-color: #e8f5e9; border-left: 4px solid #4CAF50; padding: 12px; margin: 15px 0; }
+                  .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
+                </style>
+              </head>
+              <body>
+                <div class="container">
+                  <div class="header">
+                    <h1>Login Notification</h1>
+                  </div>
+                  <div class="content">
+                    <p>Hello ${user.firstName || "there"},</p>
+                    <p>We detected a new login to your SteadyGig account.</p>
+                    <div class="info-box">
+                      <strong>Login Details:</strong><br>
+                      Time: ${new Date().toLocaleString()}<br>
+                      Email: ${user.email}
+                    </div>
+                    <p>If this was you, no action is needed.</p>
+                    <p>If you didn't log in, please reset your password immediately and contact our support team.</p>
+                  </div>
+                  <div class="footer">
+                    <p>&copy; ${new Date().getFullYear()} SteadyGig. All rights reserved.</p>
+                  </div>
+                </div>
+              </body>
+            </html>
+        `,
+        text: `Hello ${user.firstName || "there"},\n\nWe detected a new login to your SteadyGig account at ${new Date().toLocaleString()}.\n\nIf this was you, no action is needed.\n\nIf you didn't log in, please reset your password immediately and contact our support team.`,
+    });
 
     sendSuccessResponse(res, StatusCodes.OK, "Login successful", {
         user: {
@@ -178,6 +221,49 @@ export const resetPassword = asyncWrapper(
         await prisma.user.update({
             where: { id: user.id },
             data: { password: hashedPassword },
+        });
+
+        const emailHandler = new EmailHandler();
+        await emailHandler.sendEmail({
+            to: user.email,
+            subject: "Password Reset Successful - SteadyGig",
+            html: `
+                <!DOCTYPE html>
+                <html>
+                  <head>
+                    <style>
+                      body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                      .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                      .header { background-color: #4CAF50; color: white; padding: 20px; text-align: center; }
+                      .content { padding: 20px; background-color: #f9f9f9; }
+                      .success-box { background-color: #e8f5e9; border-left: 4px solid #4CAF50; padding: 12px; margin: 15px 0; }
+                      .warning { background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 12px; margin: 15px 0; }
+                      .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
+                    </style>
+                  </head>
+                  <body>
+                    <div class="container">
+                      <div class="header">
+                        <h1>Password Reset Successful</h1>
+                      </div>
+                      <div class="content">
+                        <p>Hello ${user.firstName || "there"},</p>
+                        <div class="success-box">
+                          Your password has been successfully reset at ${new Date().toLocaleString()}.
+                        </div>
+                        <p>You can now log in to your SteadyGig account using your new password.</p>
+                        <div class="warning">
+                          <strong>Security Note:</strong> If you didn't make this change, please contact our support team immediately.
+                        </div>
+                      </div>
+                      <div class="footer">
+                        <p>&copy; ${new Date().getFullYear()} SteadyGig. All rights reserved.</p>
+                      </div>
+                    </div>
+                  </body>
+                </html>
+            `,
+            text: `Hello ${user.firstName || "there"},\n\nYour password has been successfully reset at ${new Date().toLocaleString()}.\n\nYou can now log in to your SteadyGig account using your new password.\n\nIf you didn't make this change, please contact our support team immediately.`,
         });
 
         sendSuccessResponse(
