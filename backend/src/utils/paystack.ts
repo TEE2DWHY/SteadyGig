@@ -1,4 +1,5 @@
 import axios from "axios";
+import logger from "./logger";
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 const PAYSTACK_BASE_URL = "https://api.paystack.co";
@@ -60,19 +61,31 @@ interface VerifyPaymentResponse {
 
 export class PaystackService {
     private headers: any;
+    private isConfigured: boolean;
 
     constructor() {
-        if (!PAYSTACK_SECRET_KEY) {
-            throw new Error("PAYSTACK_SECRET_KEY is not set in environment variables");
+        if (!PAYSTACK_SECRET_KEY || PAYSTACK_SECRET_KEY.includes("your_paystack")) {
+            logger.warn("Paystack API key not configured. Payment features will not work.");
+            this.isConfigured = false;
+            this.headers = {};
+            return;
         }
 
+        this.isConfigured = true;
         this.headers = {
             Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
             "Content-Type": "application/json",
         };
     }
 
+    private checkConfiguration() {
+        if (!this.isConfigured) {
+            throw new Error("Paystack is not configured. Please set PAYSTACK_SECRET_KEY in environment variables.");
+        }
+    }
+
     async initializePayment(data: InitializePaymentData) {
+        this.checkConfiguration();
         try {
             const response = await axios.post(
                 `${PAYSTACK_BASE_URL}/transaction/initialize`,
@@ -103,6 +116,7 @@ export class PaystackService {
     }
 
     async verifyPayment(reference: string): Promise<VerifyPaymentResponse | null> {
+        this.checkConfiguration();
         try {
             const response = await axios.get(
                 `${PAYSTACK_BASE_URL}/transaction/verify/${reference}`,
@@ -117,6 +131,7 @@ export class PaystackService {
     }
 
     async listBanks(country: string = "NG") {
+        this.checkConfiguration();
         try {
             const response = await axios.get(
                 `${PAYSTACK_BASE_URL}/bank?country=${country}`,
@@ -143,6 +158,7 @@ export class PaystackService {
         bank_code: string;
         currency?: string;
     }) {
+        this.checkConfiguration();
         try {
             const response = await axios.post(
                 `${PAYSTACK_BASE_URL}/transferrecipient`,
@@ -175,6 +191,7 @@ export class PaystackService {
         reason?: string;
         reference?: string;
     }) {
+        this.checkConfiguration();
         try {
             const response = await axios.post(
                 `${PAYSTACK_BASE_URL}/transfer`,

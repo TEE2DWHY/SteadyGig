@@ -166,12 +166,12 @@ model Subscription {
 
 model Booking {
   id          String         @id @default(cuid())
-  
+
   clientId    String
-  client      User           @relation("ClientBookings", fields: [clientId], references: [id])
-  
+  client      User           @relation("ClientBookings", fields: [clientId], references: [id], onDelete: Cascade)
+
   musicianId  String
-  musician    User           @relation("MusicianBookings", fields: [musicianId], references: [id])
+  musician    User           @relation("MusicianBookings", fields: [musicianId], references: [id], onDelete: Cascade)
   
   eventName   String
   eventDate   DateTime
@@ -208,12 +208,12 @@ model Booking {
 
 model Payment {
   id              String    @id @default(cuid())
-  
-  userId          String
-  user            User      @relation(fields: [userId], references: [id])
-  
+
+  userId          String?
+  user            User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
   bookingId       String?   @unique
-  booking         Booking?  @relation(fields: [bookingId], references: [id])
+  booking         Booking?  @relation(fields: [bookingId], references: [id], onDelete: SetNull)
   
   amount          Float
   currency        String    @default("NGN")
@@ -234,12 +234,12 @@ model Payment {
 
 model Review {
   id          String    @id @default(cuid())
-  
+
   bookingId   String    @unique
   booking     Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  
-  reviewerId  String
-  reviewer    User      @relation(fields: [reviewerId], references: [id])
+
+  reviewerId  String?
+  reviewer    User?     @relation(fields: [reviewerId], references: [id], onDelete: SetNull)
   
   rating      Int      
   comment     String?
